@@ -1,2 +1,3 @@
 config/local.yaml
 .vscode
+storage/files/*

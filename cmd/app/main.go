@@ -3,14 +3,15 @@ package main
 import (
 	"file-service/m/internal/config"
 	"file-service/m/internal/database/postgres"
+	"file-service/m/internal/handlers/save"
 	"file-service/m/internal/logger"
 	"file-service/m/internal/middleware/loggerMiddleware"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/render"
 )
 
 func main() {
@@ -20,7 +21,12 @@ func main() {
 
 	logger.Debug("config init", slog.Any("config", cfg))
 
-	_ = postgres.New(cfg.DatabaseConfig)
+	db, err:= postgres.New(cfg.DatabaseConfig)
+
+	if err != nil {
+		logger.Error("failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	router := chi.NewRouter()
 
@@ -29,12 +35,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, r,
-			map[string]string{
-				"message": "OK",
-			})
-	})
+	router.Post("/file", save.New(logger, db))
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,
@@ -45,7 +46,7 @@ func main() {
 	}
 
 	logger.Info("server started", slog.String("address", srv.Addr))
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 
 	if err != nil {
 		logger.Error("failed to start server", slog.String("error", err.Error()))

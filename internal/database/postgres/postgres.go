@@ -3,29 +3,152 @@ package postgres
 import (
 	"database/sql"
 	"file-service/m/internal/config"
+	"file-service/m/internal/database"
 	"fmt"
-	"log"
 
 	_ "github.com/lib/pq"
 )
 
-func New(cfg config.DatabaseConfig) *sql.DB {
+type Postgres struct {
+	db *sql.DB
+}
+
+func New(cfg config.DatabaseConfig) (*Postgres, error) {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 
 	db, err := sql.Open("postgres", connString)
 
 	if err != nil {
-		log.Fatalf("failed to open database connection: %v", err)
+		return nil, fmt.Errorf("failed to open database connection: %v", err)
 	}
-
-	defer db.Close()
 
 	err = db.Ping()
 
 	if err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+		return nil, fmt.Errorf("failed to ping database: %v", err)
 	}
 
-	return db
+	stmt, err := db.Prepare(`
+	CREATE TABLE IF NOT EXISTS files (
+		id SERIAL PRIMARY KEY,
+		original_name TEXT NOT NULL,
+		name TEXT NOT NULL UNIQUE,
+		path TEXT NOT NULL,
+		size BIGINT NOT NULL,
+		timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+	);`)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create table: %v", err)
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create table: %v", err)
+	}
+
+	stmt, err = db.Prepare(`CREATE INDEX IF NOT EXISTS files_name_idx ON files (name);`)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create index: %v", err)
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create index: %v", err)
+	}
+
+	return &Postgres{
+		db: db,
+	}, nil
+}
+
+func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {
+	const op = "postgres.InsertFile"
+
+	query := `INSERT INTO files (name, original_name, path, size) VALUES ($1, $2, $3, $4) RETURNING id`
+
+	tx, err := p.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = stmt.Exec(file.Name, file.OriginalName, file.Path, file.Size)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var id int64
+	stmt, err = tx.Prepare("SELECT id FROM files WHERE name = $1")
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = stmt.QueryRow(file.Name).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return id, nil
+}
+
+func (p *Postgres) GetFile(id int64) (*database.File, error) {
+	const op = "postgres.GetFile"
+
+	query := `SELECT * FROM files WHERE id = $1`
+
+	stmt, err := p.db.Prepare(query)
+	if err != nil {
+		return &database.File{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var file database.File
+	err = stmt.QueryRow(id).Scan(&file.Id, &file.OriginalName, &file.Name, &file.Path, &file.Size, &file.Timestamp)
+
+	if err != nil {
+		return &database.File{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &file, nil
+}
+
+func (p *Postgres) DeleteFile(id int64) (int64, error) {
+	const op = "postgres.DeleteFile"
+
+	query := `DELETE FROM files WHERE id = $1`
+
+	stmt, err := p.db.Prepare(query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	r, err := stmt.Exec(id)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resultRowsAffected, err := r.RowsAffected()
+
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if resultRowsAffected == 0 {
+		return 0, fmt.Errorf("%s: %w", op, database.ErrorNotFound)
+	}
+
+	return resultRowsAffected, nil
 }

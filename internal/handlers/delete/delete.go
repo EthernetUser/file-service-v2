@@ -1,4 +1,4 @@
-package get
+package delete
 
 import (
 	apiresponse "file-service/m/internal/api/apiResponse"
@@ -16,15 +16,16 @@ type Response struct {
 
 type Db interface {
 	GetFile(id int64, isDeleted bool) (*database.File, error)
+	DeleteFile(id int64) (int64, error)
 }
 
 type Storage interface {
-	GetFile(name string) ([]byte, error)
+	DeleteFile(name string) error
 }
 
 func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "handlers.get.New"
+		const op = "handlers.delete.New"
 
 		log := *logger.With(
 			slog.String("op", op),
@@ -48,24 +49,39 @@ func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 			return
 		}
 
-		file, err := db.GetFile(fileId, false)
+		file, err := db.GetFile(fileId, true)
 		if err != nil {
 			log.Error("failed to get file", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, apiresponse.Error("failed to get file"))
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
 			return
 		}
 
-		data, err := storage.GetFile(file.Name)
+		err = storage.DeleteFile(file.Name)
 		if err != nil {
-			log.Error("failed to get file from storage", slog.Any("error", err))
+			log.Error("failed to delete file", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, apiresponse.Error("failed to get file"))
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
 			return
 		}
 
-		log.Info("sending file", slog.Int64("file_id", fileId))
+		affectedRows, err := db.DeleteFile(fileId)
+		if err != nil {
+			log.Error("failed to set file as deleted", slog.Any("error", err))
+			render.Status(r, http.StatusInternalServerError)
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
+			return
+		}
+
+		if affectedRows == 0 {
+			log.Error("failed to set file as deleted", slog.Any("error", err))
+			render.Status(r, http.StatusInternalServerError)
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
+			return
+		}
+
+		log.Info("file deleted", slog.Int64("file_id", fileId))
 		render.Status(r, http.StatusOK)
-		w.Write(data)
+		render.JSON(w, r, Response{apiresponse.Success("file deleted")})
 	}
 }

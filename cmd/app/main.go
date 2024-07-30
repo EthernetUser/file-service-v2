@@ -3,6 +3,7 @@ package main
 import (
 	"file-service/m/internal/config"
 	"file-service/m/internal/database/postgres"
+	"file-service/m/internal/handlers/delete"
 	"file-service/m/internal/handlers/get"
 	"file-service/m/internal/handlers/save"
 	setdelete "file-service/m/internal/handlers/setDelete"
@@ -49,7 +50,8 @@ func main() {
 	router.Route("/{fileID}", func(r chi.Router) {
 		r.Use(fileidctxmiddleware.FileIdCtx)
 		r.Get("/", get.New(logger, db, storage))
-		r.Delete("/", setdelete.New(logger, db))
+		r.Patch("/", setdelete.New(logger, db))
+		r.Delete("/", delete.New(logger, db, storage))
 	})
 	router.Post("/file", save.New(logger, db, storage, uuidgenerator.New()))
 

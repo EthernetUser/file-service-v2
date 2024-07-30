@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-type Storage struct{
+type Storage struct {
 	StoragePath string
 	StorageType string
 }
@@ -61,4 +61,14 @@ func (s *Storage) GetFile(name string) ([]byte, error) {
 	}
 
 	return buf, nil
+}
+
+func (s *Storage) DeleteFile(name string) error {
+	err := os.Remove(s.createFilePath(name))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

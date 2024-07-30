@@ -107,10 +107,10 @@ func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {
 	return id, nil
 }
 
-func (p *Postgres) GetFile(id int64) (*database.File, error) {
+func (p *Postgres) GetFile(id int64, isDeleted bool) (*database.File, error) {
 	const op = "postgres.GetFile"
 
-	query := `SELECT * FROM files WHERE id = $1 and is_deleted = false`
+	query := `SELECT * FROM files WHERE id = $1 and is_deleted = $2`
 
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -126,7 +126,7 @@ func (p *Postgres) GetFile(id int64) (*database.File, error) {
 
 	var file database.File
 	err = stmt.
-		QueryRow(id).
+		QueryRow(id, isDeleted).
 		Scan(
 			&file.Id,
 			&file.OriginalName,
@@ -150,7 +150,7 @@ func (p *Postgres) GetFile(id int64) (*database.File, error) {
 	return &file, nil
 }
 
-func (p *Postgres) SetFileIsDeleted(id int64) (int64,error) {
+func (p *Postgres) SetFileIsDeleted(id int64) (int64, error) {
 
 	const op = "postgres.DeleteFile"
 
@@ -191,7 +191,14 @@ func (p *Postgres) SetFileIsDeleted(id int64) (int64,error) {
 func (p *Postgres) DeleteFile(id int64) (int64, error) {
 	const op = "postgres.DeleteFile"
 
-	query := `DELETE FROM files WHERE id = $1`
+	query := `DELETE FROM files WHERE id = $1 and is_deleted = true`
+
+	tx, err := p.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	defer tx.Rollback()
 
 	stmt, err := p.db.Prepare(query)
 	if err != nil {
@@ -208,6 +215,8 @@ func (p *Postgres) DeleteFile(id int64) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+
+	tx.Commit()
 
 	if resultRowsAffected == 0 {
 		return 0, fmt.Errorf("%s: %w", op, database.ErrorNotFound)

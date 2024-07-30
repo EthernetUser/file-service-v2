@@ -19,17 +19,19 @@ func main() {
 	cfg := config.NewConfig()
 
 	logger := logger.NewLogger(cfg.Environment)
-
 	logger.Debug("config init", slog.Any("config", cfg))
 
 	db, err := postgres.New(cfg.DatabaseConfig)
-
 	if err != nil {
 		logger.Error("failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	storage := localstorage.Storage{}
+	storage, err := localstorage.New()
+	if err != nil {
+		logger.Error("failed to create local storage", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	router := chi.NewRouter()
 
@@ -38,7 +40,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Post("/file", save.New(logger, db, &storage))
+	router.Post("/file", save.New(logger, db, storage))
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,

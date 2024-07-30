@@ -36,6 +36,7 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 		name TEXT NOT NULL UNIQUE,
 		path TEXT NOT NULL,
 		size BIGINT NOT NULL,
+		storage_type TEXT NOT NULL,
 		timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
 		is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 	);`)
@@ -68,7 +69,7 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {
 	const op = "postgres.InsertFile"
 
-	query := `INSERT INTO files (name, original_name, path, size) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO files (name, original_name, path, size, storage_type) VALUES ($1, $2, $3, $4, $5)`
 
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -82,7 +83,7 @@ func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	_, err = stmt.Exec(file.Name, file.OriginalName, file.Path, file.Size)
+	_, err = stmt.Exec(file.Name, file.OriginalName, file.Path, file.Size, file.StorageType)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -109,7 +110,7 @@ func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {
 func (p *Postgres) GetFile(id int64) (*database.File, error) {
 	const op = "postgres.GetFile"
 
-	query := `SELECT * FROM files WHERE id = $1`
+	query := `SELECT * FROM files WHERE id = $1 and is_deleted = false`
 
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -132,6 +133,7 @@ func (p *Postgres) GetFile(id int64) (*database.File, error) {
 			&file.Name,
 			&file.Path,
 			&file.Size,
+			&file.StrorageType,
 			&file.Timestamp,
 			&file.IsDeleted,
 		)
@@ -152,9 +154,16 @@ func (p *Postgres) SetFileIsDeleted(id int64) (int64,error) {
 
 	const op = "postgres.DeleteFile"
 
-	query := `UPDATE files SET is_deleted = true WHERE id = $1`
+	query := `UPDATE files SET is_deleted = true WHERE id = $1 and is_deleted = false`
 
-	stmt, err := p.db.Prepare(query)
+	tx, err := p.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -169,6 +178,8 @@ func (p *Postgres) SetFileIsDeleted(id int64) (int64,error) {
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+
+	tx.Commit()
 
 	if resultRowsAffected == 0 {
 		return 0, fmt.Errorf("%s: %w", op, database.ErrorNotFound)

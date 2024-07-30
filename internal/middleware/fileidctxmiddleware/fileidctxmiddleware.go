@@ -2,7 +2,7 @@ package fileidctxmiddleware
 
 import (
 	"context"
-	"file-service/m/internal/api/apiresponse"
+	"file-service/m/internal/api/apiResponse"
 	"net/http"
 
 	"github.com/go-chi/chi"

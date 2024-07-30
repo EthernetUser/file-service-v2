@@ -15,6 +15,7 @@ type FileToSave struct {
 	Name         string
 	Path         string
 	Size         int64
+	StorageType  string
 }
 
 type File struct {
@@ -23,6 +24,7 @@ type File struct {
 	Name         string
 	Path         string
 	Size         int
+	StrorageType string
 	Timestamp    time.Time
 	IsDeleted    bool
 }

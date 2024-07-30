@@ -9,3 +9,4 @@ database:
   user: postgres
   password: postgres
   name: file-service
+storage_path: ./data/files

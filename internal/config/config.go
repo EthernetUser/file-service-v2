@@ -26,6 +26,7 @@ type Config struct {
 	Environment    string           `yaml:"environment"`
 	HttpServer     HTTPServerConfig `yaml:"http_server"`
 	DatabaseConfig DatabaseConfig   `yaml:"database"`
+	StoragePath    string           `yaml:"storage_path"`
 }
 
 func NewConfig() *Config {

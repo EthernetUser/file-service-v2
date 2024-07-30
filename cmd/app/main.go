@@ -5,12 +5,13 @@ import (
 	"file-service/m/internal/database/postgres"
 	"file-service/m/internal/handlers/get"
 	"file-service/m/internal/handlers/save"
+	setdelete "file-service/m/internal/handlers/setDelete"
 	mwLogger "file-service/m/internal/logger"
 
 	"file-service/m/internal/middleware/fileidctxmiddleware"
 	"file-service/m/internal/middleware/loggerMiddleware"
 	"file-service/m/internal/middleware/reqidctxmiddleware"
-	localstorage "file-service/m/storage/localStorage"
+	localstorage "file-service/m/internal/storage/localStorage"
 	"log/slog"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ func main() {
 	cfg := config.NewConfig()
 
 	logger := mwLogger.NewLogger(cfg.Environment)
-	logger.Debug("config init", slog.Any("config", cfg))
 
 	db, err := postgres.New(cfg.DatabaseConfig)
 	if err != nil {
@@ -31,7 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	storage, err := localstorage.New()
+	storage, err := localstorage.New(cfg.StoragePath)
 	if err != nil {
 		logger.Error("failed to create local storage", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -48,6 +48,7 @@ func main() {
 	router.Route("/{fileID}", func(r chi.Router) {
 		r.Use(fileidctxmiddleware.FileIdCtx)
 		r.Get("/", get.New(logger, db, storage))
+		r.Delete("/", setdelete.New(logger, db))
 	})
 	router.Post("/file", save.New(logger, db, storage))
 

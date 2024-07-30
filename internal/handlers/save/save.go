@@ -1,7 +1,7 @@
 package save
 
 import (
-	"file-service/m/internal/api/apiresponse"
+	"file-service/m/internal/api/apiResponse"
 	"file-service/m/internal/database"
 	"fmt"
 	"log/slog"
@@ -11,8 +11,6 @@ import (
 
 	"github.com/go-chi/render"
 )
-
-const fileStoragePath = "./storage/files"
 
 type Response struct {
 	apiresponse.ApiResponse
@@ -24,6 +22,8 @@ type Db interface {
 }
 
 type Storage interface {
+	GetStoragePath() string
+	GetStorageType() string
 	SaveFile(file multipart.File, name string) error
 }
 
@@ -76,7 +76,8 @@ func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 		fileToSave := database.FileToSave{
 			OriginalName: handler.Filename,
 			Name:         newName,
-			Path:         fileStoragePath,
+			Path:         fmt.Sprintf("%s/%s",storage.GetStoragePath(), newName),
+			StorageType:  storage.GetStorageType(),
 			Size:         handler.Size,
 		}
 

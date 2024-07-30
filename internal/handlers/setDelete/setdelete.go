@@ -1,8 +1,7 @@
-package get
+package setdelete
 
 import (
-	"file-service/m/internal/api/apiResponse"
-	"file-service/m/internal/database"
+	apiresponse "file-service/m/internal/api/apiResponse"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,14 +14,10 @@ type Response struct {
 }
 
 type Db interface {
-	GetFile(id int64) (*database.File, error)
+	SetFileIsDeleted(id int64) (int64, error)
 }
 
-type Storage interface {
-	GetFile(name string) ([]byte, error)
-}
-
-func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
+func New(logger *slog.Logger, db Db) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.get.New"
 
@@ -48,24 +43,24 @@ func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 			return
 		}
 
-		file, err := db.GetFile(fileId)
+		AffectedRows, err := db.SetFileIsDeleted(fileId)
+
 		if err != nil {
-			log.Error("failed to get file", slog.Any("error", err))
+			log.Error("failed to set file as deleted", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, apiresponse.Error("failed to get file"))
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
 			return
 		}
 
-		data, err := storage.GetFile(file.Name)
-		if err != nil {
-			log.Error("failed to get file from storage", slog.Any("error", err))
+		if AffectedRows == 0 {
+			log.Error("failed to set file as deleted", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, apiresponse.Error("failed to get file"))
+			render.JSON(w, r, apiresponse.Error("failed to delete file"))
 			return
 		}
 
-		log.Info("sending file", slog.Int64("file_id", fileId))
+		log.Info("file deleted", slog.Int64("file_id", fileId))
 		render.Status(r, http.StatusOK)
-		w.Write(data)
+		render.JSON(w, r, Response{apiresponse.Success("file deleted")})
 	}
 }

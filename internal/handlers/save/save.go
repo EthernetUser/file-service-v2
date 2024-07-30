@@ -3,10 +3,9 @@ package save
 import (
 	"file-service/m/internal/database"
 	"fmt"
-	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
@@ -19,11 +18,15 @@ type Response struct {
 	Id int64 `json:"id,omitempty"`
 }
 
-type FileSaver interface {
+type Db interface {
 	SaveFile(file database.FileToSave) (int64, error)
 }
 
-func New(logger *slog.Logger, fileSaver FileSaver) http.HandlerFunc {
+type Storage interface {
+	SaveFile(file multipart.File, name string) error
+}
+
+func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.save.New"
 
@@ -52,12 +55,22 @@ func New(logger *slog.Logger, fileSaver FileSaver) http.HandlerFunc {
 
 		defer file.Close()
 
-		logger.Info("got file from request",
+		logger.Debug("got file from request",
 			slog.String("filename", handler.Filename),
 			slog.Int64("size", handler.Size),
 		)
 
+		//TODO: generate name with uuid
 		newName := fmt.Sprintf("%v_%v", time.Now().UnixNano(), handler.Filename)
+
+		err = storage.SaveFile(file, newName)
+
+		if err != nil {
+			logger.Error("failed to save file", slog.Any("error", err))
+			render.Status(r, http.StatusInternalServerError)
+			render.JSON(w, r, Response{})
+			return
+		}
 
 		fileToSave := database.FileToSave{
 			OriginalName: handler.Filename,
@@ -66,22 +79,7 @@ func New(logger *slog.Logger, fileSaver FileSaver) http.HandlerFunc {
 			Size:         handler.Size,
 		}
 
-		id, err := fileSaver.SaveFile(fileToSave)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		dst, err := os.Create(fmt.Sprintf("%s/%s", fileStoragePath, newName))
-
-		// Copy the uploaded file to the created file on the filesystem
-		if _, err := io.Copy(dst, file); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		defer dst.Close()
+		id, err := db.SaveFile(fileToSave)
 
 		if err != nil {
 			logger.Error("failed to save file", slog.Any("error", err))

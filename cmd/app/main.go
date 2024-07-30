@@ -6,6 +6,7 @@ import (
 	"file-service/m/internal/handlers/save"
 	"file-service/m/internal/logger"
 	"file-service/m/internal/middleware/loggerMiddleware"
+	localstorage "file-service/m/storage/localStorage"
 	"log/slog"
 	"net/http"
 	"os"
@@ -21,12 +22,14 @@ func main() {
 
 	logger.Debug("config init", slog.Any("config", cfg))
 
-	db, err:= postgres.New(cfg.DatabaseConfig)
+	db, err := postgres.New(cfg.DatabaseConfig)
 
 	if err != nil {
 		logger.Error("failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	storage := localstorage.Storage{}
 
 	router := chi.NewRouter()
 
@@ -35,7 +38,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Post("/file", save.New(logger, db))
+	router.Post("/file", save.New(logger, db, &storage))
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,

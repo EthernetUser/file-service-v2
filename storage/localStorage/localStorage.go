@@ -21,8 +21,12 @@ func New() (*Storage, error) {
 	return &Storage{}, nil
 }
 
+func createFilePath(name string) string {
+	return fmt.Sprintf("%s/%s", fileStoragePath, name)
+}
+
 func (s *Storage) SaveFile(file multipart.File, name string) error {
-	dst, err := os.Create(fmt.Sprintf("%s/%s", fileStoragePath, name))
+	dst, err := os.Create(createFilePath(name))
 
 	if err != nil {
 		return err
@@ -35,4 +39,14 @@ func (s *Storage) SaveFile(file multipart.File, name string) error {
 	defer dst.Close()
 
 	return nil
+}
+
+func (s *Storage) GetFile(name string) ([]byte, error) {
+	buf, err := os.ReadFile(createFilePath(name))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
 }

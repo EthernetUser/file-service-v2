@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	ErrorNotFound = errors.New("not found")
+	ErrorNotFound      = errors.New("not found")
 	ErrorAlreadyExists = errors.New("already exists")
 )
 
@@ -18,10 +18,11 @@ type FileToSave struct {
 }
 
 type File struct {
-	Id        int64
+	Id           int64
 	OriginalName string
 	Name         string
 	Path         string
 	Size         int
 	Timestamp    time.Time
+	IsDeleted    bool
 }

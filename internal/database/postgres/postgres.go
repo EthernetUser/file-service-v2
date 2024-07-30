@@ -36,7 +36,8 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 		name TEXT NOT NULL UNIQUE,
 		path TEXT NOT NULL,
 		size BIGINT NOT NULL,
-		timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+		timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+		is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 	);`)
 
 	if err != nil {
@@ -110,19 +111,70 @@ func (p *Postgres) GetFile(id int64) (*database.File, error) {
 
 	query := `SELECT * FROM files WHERE id = $1`
 
-	stmt, err := p.db.Prepare(query)
+	tx, err := p.db.Begin()
+	if err != nil {
+		return &database.File{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return &database.File{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	var file database.File
-	err = stmt.QueryRow(id).Scan(&file.Id, &file.OriginalName, &file.Name, &file.Path, &file.Size, &file.Timestamp)
+	err = stmt.
+		QueryRow(id).
+		Scan(
+			&file.Id,
+			&file.OriginalName,
+			&file.Name,
+			&file.Path,
+			&file.Size,
+			&file.Timestamp,
+			&file.IsDeleted,
+		)
 
 	if err != nil {
 		return &database.File{}, fmt.Errorf("%s: %w", op, err)
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return &database.File{}, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return &file, nil
+}
+
+func (p *Postgres) SetFileIsDeleted(id int64) (int64,error) {
+
+	const op = "postgres.DeleteFile"
+
+	query := `UPDATE files SET is_deleted = true WHERE id = $1`
+
+	stmt, err := p.db.Prepare(query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	r, err := stmt.Exec(id)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resultRowsAffected, err := r.RowsAffected()
+
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if resultRowsAffected == 0 {
+		return 0, fmt.Errorf("%s: %w", op, database.ErrorNotFound)
+	}
+
+	return resultRowsAffected, nil
 }
 
 func (p *Postgres) DeleteFile(id int64) (int64, error) {

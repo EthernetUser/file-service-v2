@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	EnvironmentProd       = "production"
+	EnvironmentProd        = "production"
 	EnvironmentDevelopment = "development"
-	EnvironmentLocal      = "local"
+	EnvironmentLocal       = "local"
 )
 
 func NewLogger(environment string) *slog.Logger {

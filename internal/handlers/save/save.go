@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/render"
 )
@@ -27,7 +26,11 @@ type Storage interface {
 	SaveFile(file multipart.File, name string) error
 }
 
-func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
+type UuidGenerator interface {
+	GenerateUUID() string
+}
+
+func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.save.New"
 
@@ -62,7 +65,7 @@ func New(logger *slog.Logger, db Db, storage Storage) http.HandlerFunc {
 		)
 
 		//TODO: generate name with uuid
-		newName := fmt.Sprintf("%v_%v", time.Now().UnixNano(), handler.Filename)
+		newName := fmt.Sprintf("%v_%v", uuidGen.GenerateUUID(), handler.Filename)
 
 		err = storage.SaveFile(file, newName)
 

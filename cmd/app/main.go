@@ -7,6 +7,7 @@ import (
 	"file-service/m/internal/handlers/save"
 	setdelete "file-service/m/internal/handlers/setDelete"
 	mwLogger "file-service/m/internal/logger"
+	"file-service/m/internal/uuidgenerator"
 
 	"file-service/m/internal/middleware/fileidctxmiddleware"
 	"file-service/m/internal/middleware/loggerMiddleware"
@@ -50,7 +51,7 @@ func main() {
 		r.Get("/", get.New(logger, db, storage))
 		r.Delete("/", setdelete.New(logger, db))
 	})
-	router.Post("/file", save.New(logger, db, storage))
+	router.Post("/file", save.New(logger, db, storage, uuidgenerator.New()))
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,

@@ -43,7 +43,6 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 		)
 
 		err := r.ParseMultipartForm(32 << 20)
-
 		if err != nil {
 			log.Error("failed to parse multipart form", slog.Any("error", err))
 			render.Status(r, http.StatusBadRequest)
@@ -52,7 +51,6 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 		}
 
 		file, handler, err := r.FormFile("file")
-
 		if err != nil {
 			log.Error("failed to get file from request", slog.Any("error", err))
 			render.Status(r, http.StatusBadRequest)
@@ -70,7 +68,6 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 		newName := fmt.Sprintf("%v_%v", uuidGen.GenerateUUID(), handler.Filename)
 
 		err = storage.SaveFile(file, newName)
-
 		if err != nil {
 			logger.Error("failed to save file", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)
@@ -87,7 +84,6 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 		}
 
 		id, err := db.SaveFile(fileToSave)
-
 		if err != nil {
 			log.Error("failed to save file", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)

@@ -23,6 +23,7 @@ func TestSaveHandler(t *testing.T) {
 	storage := mocks.NewStorage(t)
 	uuidGen := mocks.NewUuidGenerator(t)
 	error := fmt.Errorf("error")
+	handler := save.New(log, db, storage, uuidGen)
 	uuidGen.On("GenerateUUID").Return("123").Maybe()
 	storage.On("GetStoragePath").Return("test").Maybe()
 	storage.On("GetStorageType").Return("local").Maybe()
@@ -32,8 +33,6 @@ func TestSaveHandler(t *testing.T) {
 		db.On("SaveFile", mock.Anything).Return(int64(1), nil).Once()
 
 		r, w := CreateRequestAndResponse(t, []byte("test"), "file", "test")
-
-		handler := save.New(log, db, storage, uuidGen)
 
 		handler.ServeHTTP(w, r)
 
@@ -47,7 +46,6 @@ func TestSaveHandler(t *testing.T) {
 
 	t.Run("invalid file key", func(t *testing.T) {
 		r, w := CreateRequestAndResponse(t, []byte("test"), "invalid file key", "test")
-		handler := save.New(log, db, storage, uuidGen)
 		handler.ServeHTTP(w, r)
 
 		resp := w.Result()
@@ -60,7 +58,6 @@ func TestSaveHandler(t *testing.T) {
 
 	t.Run("invalid file name", func(t *testing.T) {
 		r, w := CreateRequestAndResponse(t, []byte("test"), "file", "")
-		handler := save.New(log, db, storage, uuidGen)
 		handler.ServeHTTP(w, r)
 
 		resp := w.Result()
@@ -74,7 +71,6 @@ func TestSaveHandler(t *testing.T) {
 	t.Run("storage error", func(t *testing.T) {
 		storage.On("SaveFile", mock.Anything, mock.Anything).Return(error).Once()
 		r, w := CreateRequestAndResponse(t, []byte("test"), "file", "test")
-		handler := save.New(log, db, storage, uuidGen)
 		handler.ServeHTTP(w, r)
 
 		resp := w.Result()
@@ -89,7 +85,6 @@ func TestSaveHandler(t *testing.T) {
 		storage.On("SaveFile", mock.Anything, mock.Anything).Return(nil).Once()
 		db.On("SaveFile", mock.Anything).Return(int64(0), error).Once()
 		r, w := CreateRequestAndResponse(t, []byte("test"), "file", "test")
-		handler := save.New(log, db, storage, uuidGen)
 		handler.ServeHTTP(w, r)
 
 		resp := w.Result()

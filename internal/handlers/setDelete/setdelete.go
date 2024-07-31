@@ -13,6 +13,7 @@ type Response struct {
 	apiresponse.ApiResponse
 }
 
+//go:generate mockery --name=Db
 type Db interface {
 	SetFileIsDeleted(id int64) (int64, error)
 }
@@ -26,7 +27,14 @@ func New(logger *slog.Logger, db Db) http.HandlerFunc {
 			slog.String("request_id", r.Context().Value("requestId").(string)),
 		)
 
-		fileIdStr := r.Context().Value("fileID").(string)
+		fileIdStr, ok := r.Context().Value("fileID").(string)
+		if !ok {
+			log.Error("file id is empty")
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, apiresponse.Error("file id is empty"))
+			return
+		}
+
 		if fileIdStr == "" {
 			log.Error("file id is empty")
 			render.Status(r, http.StatusBadRequest)

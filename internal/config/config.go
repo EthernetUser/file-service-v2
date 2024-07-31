@@ -9,29 +9,29 @@ import (
 )
 
 type DatabaseConfig struct {
-	Host     string `yaml:"host"`
-	Port     string `yaml:"port"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Name     string `yaml:"name"`
+	Host     string `yaml:"host" env:"POSTGRES_HOST" env-default:"localhost"`
+	Port     string `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
+	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
+	Name     string `yaml:"name" env:"POSTGRES_NAME" env-required:"true"`
 }
 
 type HTTPServerConfig struct {
-	Address     string        `yaml:"address"`
-	Timeout     time.Duration `yaml:"timeout"`
-	IdleTimeout time.Duration `yaml:"idle_timeout"`
+	Address     string        `yaml:"address" env:"HTTP_SERVER_ADDRESS" env-default:"0.0.0.0:8080"`
+	Timeout     time.Duration `yaml:"timeout" env:"HTTP_SERVER_TIMEOUT" env-default:"5s"`
+	IdleTimeout time.Duration `yaml:"idle_timeout" env:"HTTP_SERVER_IDLE_TIMEOUT" env-default:"60s"`
 }
 
 type AuthConfig struct {
-	User string `yaml:"user"`
-	Password string `yaml:"password"`
+	User     string `yaml:"user" env:"AUTH_USER" env-required:"true"`
+	Password string `yaml:"password" env:"AUTH_PASSWORD" env-required:"true"`
 }
 
 type Config struct {
-	Environment    string           `yaml:"environment"`
+	Environment    string           `yaml:"environment" env:"ENVIRONMENT" env-required:"true"`
 	HttpServer     HTTPServerConfig `yaml:"http_server"`
 	DatabaseConfig DatabaseConfig   `yaml:"database"`
-	StoragePath    string           `yaml:"storage_path"`
+	StoragePath    string           `yaml:"storage_path" env:"STORAGE_PATH" env-default:"./data/files"`
 	AuthConfig     AuthConfig       `yaml:"auth"`
 }
 

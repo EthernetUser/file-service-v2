@@ -16,16 +16,19 @@ type Response struct {
 	Id int64 `json:"id,omitempty"`
 }
 
+//go:generate mockery --name=Db
 type Db interface {
 	SaveFile(file database.FileToSave) (int64, error)
 }
 
+//go:generate mockery --name=Storage
 type Storage interface {
 	GetStoragePath() string
 	GetStorageType() string
 	SaveFile(file multipart.File, name string) error
 }
 
+//go:generate mockery --name=UuidGenerator
 type UuidGenerator interface {
 	GenerateUUID() string
 }

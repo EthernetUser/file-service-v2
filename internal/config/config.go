@@ -22,11 +22,17 @@ type HTTPServerConfig struct {
 	IdleTimeout time.Duration `yaml:"idle_timeout"`
 }
 
+type AuthConfig struct {
+	User string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
 type Config struct {
 	Environment    string           `yaml:"environment"`
 	HttpServer     HTTPServerConfig `yaml:"http_server"`
 	DatabaseConfig DatabaseConfig   `yaml:"database"`
 	StoragePath    string           `yaml:"storage_path"`
+	AuthConfig     AuthConfig       `yaml:"auth"`
 }
 
 func NewConfig() *Config {

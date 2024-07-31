@@ -39,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := InitRouter(logger, db, storage)
+	router := InitRouter(logger, db, storage, cfg)
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,
@@ -59,7 +59,7 @@ func main() {
 	logger.Error("server stopped")
 }
 
-func InitRouter(log *slog.Logger, db *postgres.Postgres, storage *localstorage.Storage) *chi.Mux {
+func InitRouter(log *slog.Logger, db *postgres.Postgres, storage *localstorage.Storage, cfg *config.Config) *chi.Mux {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -67,6 +67,9 @@ func InitRouter(log *slog.Logger, db *postgres.Postgres, storage *localstorage.S
 	router.Use(loggerMiddleware.New(log))
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
+	router.Use(middleware.BasicAuth("file-service", map[string]string{
+		cfg.AuthConfig.User: cfg.AuthConfig.Password,
+	}))
 
 	router.Route("/file", func(r chi.Router) {
 		r.Post("/", save.New(log, db, storage, uuidgenerator.New()))

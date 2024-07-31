@@ -10,3 +10,6 @@ database:
   password: postgres
   name: file-service
 storage_path: ./data/files
+auth:
+  user: admin
+  password: admin

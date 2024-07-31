@@ -27,7 +27,6 @@ func New(logger *slog.Logger, db Db) http.HandlerFunc {
 		)
 
 		fileIdStr := r.Context().Value("fileID").(string)
-
 		if fileIdStr == "" {
 			log.Error("file id is empty")
 			render.Status(r, http.StatusBadRequest)
@@ -44,7 +43,6 @@ func New(logger *slog.Logger, db Db) http.HandlerFunc {
 		}
 
 		AffectedRows, err := db.SetFileIsDeleted(fileId)
-
 		if err != nil {
 			log.Error("failed to set file as deleted", slog.Any("error", err))
 			render.Status(r, http.StatusInternalServerError)

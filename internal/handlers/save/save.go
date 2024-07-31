@@ -1,7 +1,7 @@
 package save
 
 import (
-	"file-service/m/internal/api/apiResponse"
+	apiresponse "file-service/m/internal/api/apiResponse"
 	"file-service/m/internal/database"
 	"fmt"
 	"log/slog"
@@ -64,7 +64,6 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 			slog.Int64("size", handler.Size),
 		)
 
-		//TODO: generate name with uuid
 		newName := fmt.Sprintf("%v_%v", uuidGen.GenerateUUID(), handler.Filename)
 
 		err = storage.SaveFile(file, newName)
@@ -79,7 +78,7 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 		fileToSave := database.FileToSave{
 			OriginalName: handler.Filename,
 			Name:         newName,
-			Path:         fmt.Sprintf("%s/%s",storage.GetStoragePath(), newName),
+			Path:         fmt.Sprintf("%s/%s", storage.GetStoragePath(), newName),
 			StorageType:  storage.GetStorageType(),
 			Size:         handler.Size,
 		}
@@ -93,6 +92,7 @@ func New(logger *slog.Logger, db Db, storage Storage, uuidGen UuidGenerator) htt
 			return
 		}
 
+		log.Info("file saved", slog.Int64("id", id))
 		render.Status(r, http.StatusCreated)
 		render.JSON(w, r, Response{
 			ApiResponse: apiresponse.Success("file saved"),

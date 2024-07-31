@@ -39,21 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := chi.NewRouter()
-
-	router.Use(middleware.RequestID)
-	router.Use(reqidctxmiddleware.RequestIdCtx)
-	router.Use(loggerMiddleware.New(logger))
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-
-	router.Route("/{fileID}", func(r chi.Router) {
-		r.Use(fileidctxmiddleware.FileIdCtx)
-		r.Get("/", get.New(logger, db, storage))
-		r.Patch("/", setdelete.New(logger, db))
-		r.Delete("/", delete.New(logger, db, storage))
-	})
-	router.Post("/file", save.New(logger, db, storage, uuidgenerator.New()))
+	router := InitRouter(logger, db, storage)
 
 	srv := &http.Server{
 		Addr:         cfg.HttpServer.Address,
@@ -71,4 +57,26 @@ func main() {
 	}
 
 	logger.Error("server stopped")
+}
+
+func InitRouter(log *slog.Logger, db *postgres.Postgres, storage *localstorage.Storage) *chi.Mux {
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(reqidctxmiddleware.RequestIdCtx)
+	router.Use(loggerMiddleware.New(log))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+
+	router.Route("/file", func(r chi.Router) {
+		r.Post("/", save.New(log, db, storage, uuidgenerator.New()))
+		r.Route("/{fileID}", func(r chi.Router) {
+			r.Use(fileidctxmiddleware.FileIdCtx)
+			r.Get("/", get.New(log, db, storage))
+			r.Patch("/", setdelete.New(log, db))
+			r.Delete("/", delete.New(log, db, storage))
+		})
+	})
+
+	return router
 }

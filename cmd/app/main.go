@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"file-service/m/internal/config"
 	"file-service/m/internal/database/postgres"
 	"file-service/m/internal/handlers/delete"
@@ -9,6 +10,9 @@ import (
 	setdelete "file-service/m/internal/handlers/setDelete"
 	mwLogger "file-service/m/internal/logger"
 	"file-service/m/internal/uuidgenerator"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"file-service/m/internal/middleware/fileidctxmiddleware"
 	"file-service/m/internal/middleware/loggerMiddleware"
@@ -33,9 +37,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("failed to close storage", slog.String("error", err.Error()))
+			return
+		}
+
+		logger.Info("storage closed")
+	}()
+
 	storage, err := localstorage.New(cfg.StoragePath)
 	if err != nil {
-		logger.Error("failed to create local storage", slog.String("error", err.Error()))
+		logger.Error("failed to create storage", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -49,14 +62,35 @@ func main() {
 		IdleTimeout:  cfg.HttpServer.IdleTimeout,
 	}
 
-	logger.Info("server started", slog.String("address", srv.Addr))
-	err = srv.ListenAndServe()
+	sigterm, done := setupGracefulShutdown(logger, srv, cfg.HttpServer.ShutdownTimeout)
 
-	if err != nil {
+	logger.Info("starting http server", slog.String("address", srv.Addr))
+	if err = srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		signal.Stop(sigterm)
 		logger.Error("failed to start server", slog.String("error", err.Error()))
 	}
 
-	logger.Error("server stopped")
+	<-done
+	logger.Info("server http stopped")
+}
+
+func setupGracefulShutdown(logger *slog.Logger, srv *http.Server, ShutdownTimeout time.Duration) (chan os.Signal, chan struct{}) {
+	done := make(chan struct{})
+	sigterm := make(chan os.Signal, 1)
+	signal.Notify(sigterm, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		defer close(done)
+		<-sigterm
+
+		ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Error("failed to stop server", slog.String("error", err.Error()))
+		}
+	}()
+
+	return sigterm, done
 }
 
 func InitRouter(log *slog.Logger, db *postgres.Postgres, storage *localstorage.Storage, cfg *config.Config) *chi.Mux {

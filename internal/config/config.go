@@ -9,30 +9,31 @@ import (
 )
 
 type DatabaseConfig struct {
-	Host     string 
-	Port     string 
-	User     string 
-	Password string 
-	Name     string 
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
 }
 
 type HTTPServerConfig struct {
-	Address     string        
-	Timeout     time.Duration 
-	IdleTimeout time.Duration 
+	Address         string
+	Timeout         time.Duration
+	IdleTimeout     time.Duration
+	ShutdownTimeout time.Duration
 }
 
 type AuthConfig struct {
-	User     string 
-	Password string 
+	User     string
+	Password string
 }
 
 type Config struct {
-	Environment    string           
-	HttpServer     HTTPServerConfig 
-	DatabaseConfig DatabaseConfig   
-	StoragePath    string           
-	AuthConfig     AuthConfig       
+	Environment    string
+	HttpServer     HTTPServerConfig
+	DatabaseConfig DatabaseConfig
+	StoragePath    string
+	AuthConfig     AuthConfig
 }
 
 func NewConfig() *Config {
@@ -53,11 +54,12 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		Environment:    getEnv("ENVIRONMENT", "local"),
+		Environment: getEnv("ENVIRONMENT", "local"),
 		HttpServer: HTTPServerConfig{
-			Address:     getEnv("HTTP_SERVER_ADDRESS", "localhost:8080"),
-			Timeout:     parseTimeDurationFromEnv("HTTP_SERVER_TIMEOUT", "10s"),
-			IdleTimeout: parseTimeDurationFromEnv("HTTP_SERVER_IDLE_TIMEOUT", "120s"),
+			Address:         getEnv("HTTP_SERVER_ADDRESS", "localhost:8080"),
+			Timeout:         parseTimeDurationFromEnv("HTTP_SERVER_TIMEOUT", "10s"),
+			IdleTimeout:     parseTimeDurationFromEnv("HTTP_SERVER_IDLE_TIMEOUT", "120s"),
+			ShutdownTimeout: parseTimeDurationFromEnv("HTTP_SERVER_SHUTDOWN_TIMEOUT", "10s"),
 		},
 		DatabaseConfig: DatabaseConfig{
 			Host:     getEnv("POSTGRES_HOST", "localhost"),

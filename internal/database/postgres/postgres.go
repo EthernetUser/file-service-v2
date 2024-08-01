@@ -5,12 +5,14 @@ import (
 	"file-service/m/internal/config"
 	"file-service/m/internal/database"
 	"fmt"
+	"sync"
 
 	_ "github.com/lib/pq"
 )
 
 type Postgres struct {
-	db *sql.DB
+	db   *sql.DB
+	once sync.Once
 }
 
 func New(cfg config.DatabaseConfig) (*Postgres, error) {
@@ -64,6 +66,19 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 	return &Postgres{
 		db: db,
 	}, nil
+}
+
+func (p *Postgres) Close() error {
+	var errorOnClose error
+
+	p.once.Do(func() {
+		err := p.db.Close()
+		if err != nil {
+			errorOnClose = fmt.Errorf("failed to close database: %v", err)
+		}
+	})
+
+	return errorOnClose
 }
 
 func (p *Postgres) SaveFile(file database.FileToSave) (int64, error) {

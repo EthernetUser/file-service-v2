@@ -5,34 +5,34 @@ import (
 	"os"
 	"time"
 
-	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/joho/godotenv"
 )
 
 type DatabaseConfig struct {
-	Host     string `yaml:"host" env:"POSTGRES_HOST" env-default:"localhost"`
-	Port     string `yaml:"port" env:"POSTGRES_PORT" env-default:"5432"`
-	User     string `yaml:"user" env:"POSTGRES_USER" env-required:"true"`
-	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-required:"true"`
-	Name     string `yaml:"name" env:"POSTGRES_NAME" env-required:"true"`
+	Host     string 
+	Port     string 
+	User     string 
+	Password string 
+	Name     string 
 }
 
 type HTTPServerConfig struct {
-	Address     string        `yaml:"address" env:"HTTP_SERVER_ADDRESS" env-default:"0.0.0.0:8080"`
-	Timeout     time.Duration `yaml:"timeout" env:"HTTP_SERVER_TIMEOUT" env-default:"5s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env:"HTTP_SERVER_IDLE_TIMEOUT" env-default:"60s"`
+	Address     string        
+	Timeout     time.Duration 
+	IdleTimeout time.Duration 
 }
 
 type AuthConfig struct {
-	User     string `yaml:"user" env:"AUTH_USER" env-required:"true"`
-	Password string `yaml:"password" env:"AUTH_PASSWORD" env-required:"true"`
+	User     string 
+	Password string 
 }
 
 type Config struct {
-	Environment    string           `yaml:"environment" env:"ENVIRONMENT" env-required:"true"`
-	HttpServer     HTTPServerConfig `yaml:"http_server"`
-	DatabaseConfig DatabaseConfig   `yaml:"database"`
-	StoragePath    string           `yaml:"storage_path" env:"STORAGE_PATH" env-default:"./data/files"`
-	AuthConfig     AuthConfig       `yaml:"auth"`
+	Environment    string           
+	HttpServer     HTTPServerConfig 
+	DatabaseConfig DatabaseConfig   
+	StoragePath    string           
+	AuthConfig     AuthConfig       
 }
 
 func NewConfig() *Config {
@@ -46,13 +46,53 @@ func NewConfig() *Config {
 		log.Fatalf("CONFIG_PATH %s doesn't exist", configPath)
 	}
 
-	var cfg Config
-
-	err := cleanenv.ReadConfig(configPath, &cfg)
+	err := godotenv.Load(configPath)
 
 	if err != nil {
 		log.Fatalf("failed to read config, err: %v", err)
 	}
 
-	return &cfg
+	return &Config{
+		Environment:    getEnv("ENVIRONMENT", "local"),
+		HttpServer: HTTPServerConfig{
+			Address:     getEnv("HTTP_SERVER_ADDRESS", "localhost:8080"),
+			Timeout:     parseTimeDurationFromEnv("HTTP_SERVER_TIMEOUT", "10s"),
+			IdleTimeout: parseTimeDurationFromEnv("HTTP_SERVER_IDLE_TIMEOUT", "120s"),
+		},
+		DatabaseConfig: DatabaseConfig{
+			Host:     getEnv("POSTGRES_HOST", "localhost"),
+			Port:     getEnv("POSTGRES_PORT", "5432"),
+			User:     getEnv("POSTGRES_USER", ""),
+			Password: getEnv("POSTGRES_PASSWORD", ""),
+			Name:     getEnv("POSTGRES_NAME", "file-service"),
+		},
+		StoragePath: getEnv("STORAGE_PATH", "./data/files"),
+		AuthConfig: AuthConfig{
+			User:     getEnv("AUTH_USER", ""),
+			Password: getEnv("AUTH_PASSWORD", ""),
+		},
+	}
+}
+
+func parseTimeDurationFromEnv(key string, defaultValue string) time.Duration {
+	value := getEnv(key, defaultValue)
+
+	parsedValue, err := time.ParseDuration(value)
+	if err != nil {
+		log.Fatalf("failed to parse %s, err: %v", key, err)
+	}
+
+	return parsedValue
+}
+
+func getEnv(key string, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+
+	if defaultValue == "" {
+		log.Fatalf("environment variable %s not set", key)
+	}
+
+	return defaultValue
 }

@@ -2,3 +2,4 @@ config/local.yaml
 .vscode
 storage/files/*
 data
+.env

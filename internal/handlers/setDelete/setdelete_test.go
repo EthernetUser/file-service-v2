@@ -2,7 +2,7 @@ package setdelete_test
 
 import (
 	"context"
-	"file-service/m/internal/handlers/setdelete/mocks"
+	"file-service/m/internal/handlers/setDelete/mocks"
 	setdelete "file-service/m/internal/handlers/setDelete"
 	mockLogger "file-service/m/internal/logger/mocks"
 	"fmt"
